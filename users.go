@@ -38,7 +38,14 @@ func (q *Client) GetUsers(params *GetUsersParams) []*User {
 	resp := q.getJson(apiUrlResource("users/"+strings.Join(params.Ids, ",")), map[string]string{})
 	parsed := parseJsonObject(resp)
 
-	return hydrateUsers(parsed)
+	return hydrateUsersMap(parsed)
+}
+
+func (q *Client) GetContacts() []*User {
+	resp := q.getJson(apiUrlResource("users/contacts"), map[string]string{})
+	parsed := parseJsonArray(resp)
+
+	return hydrateUsersArray(parsed)
 }
 
 func (q *Client) GetAuthenticatedUser() *User {
@@ -54,7 +61,17 @@ func hydrateUser(resp interface{}) *User {
 	return &user
 }
 
-func hydrateUsers(resp map[string]interface{}) []*User {
+func hydrateUsersMap(resp map[string]interface{}) []*User {
+	users := make([]*User, 0, len(resp))
+
+	for _, body := range resp {
+		users = append(users, hydrateUser(body))
+	}
+
+	return users
+}
+
+func hydrateUsersArray(resp []interface{}) []*User {
 	users := make([]*User, 0, len(resp))
 
 	for _, body := range resp {

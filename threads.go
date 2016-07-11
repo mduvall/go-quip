@@ -89,7 +89,7 @@ func (q *Client) EditDocument(params *EditDocumentParams) *Thread {
 	requestParams["content"] = params.Content
 
 	setOptional(params.Format, "format", &requestParams)
-	setOptional(params.Location, "locatoin", &requestParams)
+	setOptional(params.Location, "location", &requestParams)
 	setOptional(strings.Join(params.MemberIds, ","), "member_ids", &requestParams)
 
 	resp := q.postJson(apiUrlResource("threads/edit-document"), requestParams)

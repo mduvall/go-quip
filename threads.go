@@ -32,6 +32,7 @@ type EditDocumentParams struct {
 	Content   string
 	Format    string
 	Location  string
+	SectionId string
 	MemberIds []string
 }
 
@@ -85,11 +86,17 @@ func (q *Client) NewDocument(params *NewDocumentParams) *Thread {
 
 func (q *Client) EditDocument(params *EditDocumentParams) *Thread {
 	requestParams := make(map[string]string)
-	required(params.Content, "Content is required for /edit-document")
-	requestParams["content"] = params.Content
+	required(params.ThreadId, "ThreadId is required for /edit-document")
+	if params.Location != "5" {
+		required(params.Content, "Content is required for /edit-document unless Location is 5 (DELETE_SECTION)")
+		requestParams["content"] = params.Content
+	}
+
+	requestParams["thread_id"] = params.ThreadId
 
 	setOptional(params.Format, "format", &requestParams)
 	setOptional(params.Location, "location", &requestParams)
+	setOptional(params.SectionId, "section_id", &requestParams)
 	setOptional(strings.Join(params.MemberIds, ","), "member_ids", &requestParams)
 
 	resp := q.postJson(apiUrlResource("threads/edit-document"), requestParams)

@@ -23,60 +23,82 @@ type GetUsersParams struct {
 	Ids []string
 }
 
-func (q *Client) GetUser(params *GetUserParams) *User {
+func (q *Client) GetUser(params *GetUserParams) (*User, error) {
 	required(params.Id, "Id is required for /users/id")
 
-	resp := q.getJson(apiUrlResource("users/"+params.Id), map[string]string{})
+	resp, err := q.getJson(apiUrlResource("users/"+params.Id), map[string]string{})
+	if err != nil {
+		return nil, err
+	}
 	parsed := parseJsonObject(resp)
 
 	return hydrateUser(parsed)
 }
 
-func (q *Client) GetUsers(params *GetUsersParams) []*User {
+func (q *Client) GetUsers(params *GetUsersParams) ([]*User, error) {
 	required(params.Ids, "Ids is required for /users/ids")
 
-	resp := q.getJson(apiUrlResource("users/"+strings.Join(params.Ids, ",")), map[string]string{})
+	resp, err := q.getJson(apiUrlResource("users/"+strings.Join(params.Ids, ",")), map[string]string{})
+	if err != nil {
+		return nil, err
+	}
 	parsed := parseJsonObject(resp)
 
 	return hydrateUsersMap(parsed)
 }
 
-func (q *Client) GetContacts() []*User {
-	resp := q.getJson(apiUrlResource("users/contacts"), map[string]string{})
+func (q *Client) GetContacts() ([]*User, error) {
+	resp, err := q.getJson(apiUrlResource("users/contacts"), map[string]string{})
+	if err != nil {
+		return nil, err
+	}
 	parsed := parseJsonArray(resp)
 
 	return hydrateUsersArray(parsed)
 }
 
-func (q *Client) GetAuthenticatedUser() *User {
-	resp := q.getJson(apiUrlResource("users/current"), map[string]string{})
+func (q *Client) GetAuthenticatedUser() (*User, error) {
+	resp, err := q.getJson(apiUrlResource("users/current"), map[string]string{})
+	if err != nil {
+		return nil, err
+	}
 	parsed := parseJsonObject(resp)
 
 	return hydrateUser(parsed)
 }
 
-func hydrateUser(resp interface{}) *User {
+func hydrateUser(resp interface{}) (*User, error) {
 	var user User
-	mapstructure.Decode(resp, &user)
-	return &user
+	if err := mapstructure.Decode(resp, &user); err != nil {
+		return nil, err
+	}
+	return &user, nil
 }
 
-func hydrateUsersMap(resp map[string]interface{}) []*User {
+func hydrateUsersMap(resp map[string]interface{}) ([]*User, error) {
 	users := make([]*User, 0, len(resp))
 
 	for _, body := range resp {
-		users = append(users, hydrateUser(body))
+		u, err := hydrateUser(body)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, u)
 	}
 
-	return users
+	return users, nil
 }
 
-func hydrateUsersArray(resp []interface{}) []*User {
+func hydrateUsersArray(resp []interface{}) ([]*User, error) {
 	users := make([]*User, 0, len(resp))
 
 	for _, body := range resp {
-		users = append(users, hydrateUser(body))
+		u, err := hydrateUser(body)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, u)
 	}
 
-	return users
+	return users, nil
 }

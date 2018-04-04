@@ -1,10 +1,12 @@
 package quip
 
-import "github.com/mitchellh/mapstructure"
+import (
+	"encoding/json"
+)
 
 type Message struct {
-	AuthorId    string `mapstructure:"author_id"`
-	CreatedUsec int    `mapstructure:"created_usec"`
+	AuthorId    string `json:"author_id"`
+	CreatedUsec int    `json:"created_usec"`
 	Id          string
 	Text        string
 }
@@ -21,20 +23,25 @@ type NewMessageParams struct {
 	Silent   bool
 }
 
-func (q *Client) GetRecentMessages(params *GetRecentMessagesParams) []*Message {
+func (q *Client) GetRecentMessages(params *GetRecentMessagesParams) ([]*Message, error) {
 	requestParams := make(map[string]string)
 
 	required(params.ThreadId, "ThreadId is required for /messages/thread-id")
 	setOptional(params.Count, "count", &requestParams)
 	setOptional(params.MaxUpdatedUsec, "max_updated_usec", &requestParams)
 
-	resp := q.getJson(apiUrlResource("messages/"+params.ThreadId), requestParams)
-	parsed := parseJsonArray(resp)
-
-	return hydrateMessages(parsed)
+	resp, err := q.getJson(apiUrlResource("messages/"+params.ThreadId), requestParams)
+	if err != nil {
+		return nil, err
+	}
+	var messages []*Message
+	if err := json.Unmarshal(resp, &messages); err != nil {
+		return nil, err
+	}
+	return messages, nil
 }
 
-func (q *Client) NewMessage(params *NewMessageParams) *Message {
+func (q *Client) NewMessage(params *NewMessageParams) (*Message, error) {
 	requestParams := make(map[string]string)
 
 	setRequired(params.ThreadId, "thread_id", &requestParams, "ThreadID is required for /messages/new")
@@ -42,24 +49,13 @@ func (q *Client) NewMessage(params *NewMessageParams) *Message {
 
 	setOptional(params.Silent, "silent", &requestParams)
 
-	resp := q.postJson(apiUrlResource("messages/new"), requestParams)
-	parsed := parseJsonObject(resp)
-
-	return hydrateMessage(parsed)
-}
-
-func hydrateMessage(resp interface{}) *Message {
-	var message Message
-	mapstructure.Decode(resp, &message)
-	return &message
-}
-
-func hydrateMessages(resp []interface{}) []*Message {
-	messages := make([]*Message, 0, len(resp))
-
-	for _, body := range resp {
-		messages = append(messages, hydrateMessage(body))
+	resp, err := q.postJson(apiUrlResource("messages/new"), requestParams)
+	if err != nil {
+		return nil, err
 	}
-
-	return messages
+	var message Message
+	if err := json.Unmarshal(resp, &message); err != nil {
+		return nil, err
+	}
+	return &message, nil
 }

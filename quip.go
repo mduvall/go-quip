@@ -36,7 +36,7 @@ func NewClientOAuth(accessToken string, clientId string, clientSecret string, re
 	}
 }
 
-func (q *Client) postJson(resource string, params map[string]string) []byte {
+func (q *Client) postJson(resource string, params map[string]string) ([]byte, error) {
 	req, err := http.NewRequest("POST", resource, mapToQueryString(params))
 	if err != nil {
 		log.Fatal("Bad url: " + resource)
@@ -46,10 +46,10 @@ func (q *Client) postJson(resource string, params map[string]string) []byte {
 	return q.doRequest(req)
 }
 
-func (q *Client) getJson(resource string, params map[string]string) []byte {
+func (q *Client) getJson(resource string, params map[string]string) ([]byte, error) {
 	qs, err := ioutil.ReadAll(mapToQueryString(params))
 	if err != nil {
-		log.Fatal("Malformed query params %v", params)
+		return nil, err
 	}
 
 	queryString := string(qs)
@@ -59,23 +59,22 @@ func (q *Client) getJson(resource string, params map[string]string) []byte {
 
 	req, err := http.NewRequest("GET", resource, nil)
 	if err != nil {
-		log.Fatal("Bad url: " + resource)
+		return nil, err
 	}
 
 	return q.doRequest(req)
 }
 
-func (q *Client) doRequest(req *http.Request) []byte {
+func (q *Client) doRequest(req *http.Request) ([]byte, error) {
 	client := &http.Client{}
 	req.Header.Set("Authorization", "Bearer "+q.accessToken)
 	res, err := client.Do(req)
 	if err != nil {
-		// TODO: handle API errors here
+		return nil, err
 	}
 
 	defer res.Body.Close()
-	body, _ := ioutil.ReadAll(res.Body)
-	return body
+	return ioutil.ReadAll(res.Body)
 }
 
 func mapToQueryString(params map[string]string) *strings.Reader {

@@ -1,18 +1,34 @@
 package quip
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
-
-	"github.com/mitchellh/mapstructure"
 )
 
+type ThreadSharing struct {
+	CompanyID   string `json:"company_id"`
+	CompanyMode string `json:"company_mode"`
+}
+
+type ThreadDetails struct {
+	ID          string
+	AuthorID    string `json:"author_id"`
+	ThreadClass string `json:"thread_class"`
+	Created     int64  `json:"created_usec"`
+	Updated     int64  `json:"updated_usec"`
+	Title       string
+	Link        string
+	Type        string
+	Sharing     ThreadSharing
+}
+
 type Thread struct {
-	ExpandedUserIds []string `mapstructure:"expanded_user_ids"`
-	UserIds         []string `mapstructure:"user_ids"`
-	SharedFolderIds []string `mapstructure:"shared_folder_ids"`
+	ExpandedUserIds []string `json:"expanded_user_ids"`
+	UserIds         []string `json:"user_ids"`
+	SharedFolderIds []string `json:"shared_folder_ids"`
 	Html            string
-	Thread          map[string]string
+	Thread          ThreadDetails
 }
 
 type GetRecentThreadsParams struct {
@@ -45,31 +61,49 @@ type RemoveMembersParams struct {
 	MemberIds []string
 }
 
-func (q *Client) GetThread(id string) *Thread {
-	resp := q.getJson(apiUrlResource("threads/"+id), map[string]string{})
-	parsed := parseJsonObject(resp)
-	return hydrateThread(parsed)
+func (q *Client) GetThread(id string) (*Thread, error) {
+	resp, err := q.getJson(apiUrlResource("threads/"+id), map[string]string{})
+	if err != nil {
+		return nil, err
+	}
+	var thread Thread
+	if err := json.Unmarshal(resp, &thread); err != nil {
+		return nil, err
+	}
+	return &thread, nil
 }
 
-func (q *Client) GetThreads(ids []string) []*Thread {
+func (q *Client) GetThreads(ids []string) ([]*Thread, error) {
 	qid := strings.Join(ids, ",")
-	resp := q.getJson(apiUrlResource("threads/?ids="+qid), map[string]string{})
-	parsed := parseJsonObject(resp)
-	return hydrateThreads(parsed)
+	resp, err := q.getJson(apiUrlResource("threads/?ids="+qid), map[string]string{})
+	if err != nil {
+		return nil, err
+	}
+	var threads []*Thread
+	if err := json.Unmarshal(resp, &threads); err != nil {
+		return nil, err
+	}
+	return threads, nil
 }
 
-func (q *Client) GetRecentThreads(params *GetRecentThreadsParams) []*Thread {
+func (q *Client) GetRecentThreads(params *GetRecentThreadsParams) ([]*Thread, error) {
 	requestParams := make(map[string]string)
 
 	setOptional(params.Count, "count", &requestParams)
 	setOptional(params.MaxUpdatedUsec, "max_updated_usec", &requestParams)
 
-	resp := q.getJson(apiUrlResource("threads/recent"), requestParams)
-	parsed := parseJsonObject(resp)
-	return hydrateThreads(parsed)
+	resp, err := q.getJson(apiUrlResource("threads/recent"), requestParams)
+	if err != nil {
+		return nil, err
+	}
+	var threads []*Thread
+	if err := json.Unmarshal(resp, &threads); err != nil {
+		return nil, err
+	}
+	return threads, nil
 }
 
-func (q *Client) NewDocument(params *NewDocumentParams) *Thread {
+func (q *Client) NewDocument(params *NewDocumentParams) (*Thread, error) {
 	requestParams := make(map[string]string)
 
 	setRequired(params.Content, "content", &requestParams, "Content is required for /new-document")
@@ -78,12 +112,18 @@ func (q *Client) NewDocument(params *NewDocumentParams) *Thread {
 	setOptional(strings.Join(params.MemberIds, ","), "member_ids", &requestParams)
 
 	fmt.Println(requestParams)
-	resp := q.postJson(apiUrlResource("threads/new-document"), requestParams)
-	parsed := parseJsonObject(resp)
-	return hydrateThread(parsed)
+	resp, err := q.postJson(apiUrlResource("threads/new-document"), requestParams)
+	if err != nil {
+		return nil, err
+	}
+	var thread Thread
+	if err := json.Unmarshal(resp, &thread); err != nil {
+		return nil, err
+	}
+	return &thread, nil
 }
 
-func (q *Client) EditDocument(params *EditDocumentParams) *Thread {
+func (q *Client) EditDocument(params *EditDocumentParams) (*Thread, error) {
 	requestParams := make(map[string]string)
 	required(params.Content, "Content is required for /edit-document")
 	requestParams["content"] = params.Content
@@ -92,12 +132,18 @@ func (q *Client) EditDocument(params *EditDocumentParams) *Thread {
 	setOptional(params.Location, "location", &requestParams)
 	setOptional(strings.Join(params.MemberIds, ","), "member_ids", &requestParams)
 
-	resp := q.postJson(apiUrlResource("threads/edit-document"), requestParams)
-
-	return hydrateThread(resp)
+	resp, err := q.postJson(apiUrlResource("threads/edit-document"), requestParams)
+	if err != nil {
+		return nil, err
+	}
+	var thread Thread
+	if err := json.Unmarshal(resp, &thread); err != nil {
+		return nil, err
+	}
+	return &thread, nil
 }
 
-func (q *Client) AddMembers(params *AddMembersParams) *Thread {
+func (q *Client) AddMembers(params *AddMembersParams) (*Thread, error) {
 	requestParams := make(map[string]string)
 	required(params.ThreadId, "ThreadId is required for /add-members")
 	required(params.MemberIds, "MemberIds is required for /add-members")
@@ -105,12 +151,18 @@ func (q *Client) AddMembers(params *AddMembersParams) *Thread {
 	requestParams["thread_id"] = params.ThreadId
 	requestParams["member_ids"] = strings.Join(params.MemberIds, ",")
 
-	resp := q.postJson(apiUrlResource("threads/add-members"), requestParams)
-	parsed := parseJsonObject(resp)
-	return hydrateThread(parsed)
+	resp, err := q.postJson(apiUrlResource("threads/add-members"), requestParams)
+	if err != nil {
+		return nil, err
+	}
+	var thread Thread
+	if err := json.Unmarshal(resp, &thread); err != nil {
+		return nil, err
+	}
+	return &thread, nil
 }
 
-func (q *Client) RemoveMembers(params *RemoveMembersParams) *Thread {
+func (q *Client) RemoveMembers(params *RemoveMembersParams) (*Thread, error) {
 	requestParams := make(map[string]string)
 	required(params.ThreadId, "ThreadId is required for /remove-members")
 	required(params.MemberIds, "MemberIds is required for /remove-members")
@@ -118,23 +170,13 @@ func (q *Client) RemoveMembers(params *RemoveMembersParams) *Thread {
 	requestParams["thread_id"] = params.ThreadId
 	requestParams["member_ids"] = strings.Join(params.MemberIds, ",")
 
-	resp := q.postJson(apiUrlResource("threads/remove-members"), requestParams)
-	parsed := parseJsonObject(resp)
-	return hydrateThread(parsed)
-}
-
-func hydrateThread(resp interface{}) *Thread {
-	var thread Thread
-	mapstructure.Decode(resp, &thread)
-	return &thread
-}
-
-func hydrateThreads(resp map[string]interface{}) []*Thread {
-	threads := make([]*Thread, 0, len(resp))
-
-	for _, body := range resp {
-		threads = append(threads, hydrateThread(body))
+	resp, err := q.postJson(apiUrlResource("threads/remove-members"), requestParams)
+	if err != nil {
+		return nil, err
 	}
-
-	return threads
+	var thread Thread
+	if err := json.Unmarshal(resp, &thread); err != nil {
+		return nil, err
+	}
+	return &thread, nil
 }

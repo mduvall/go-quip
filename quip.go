@@ -7,6 +7,9 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
+
+	"github.com/beefsack/go-rate"
 )
 
 type Client struct {
@@ -15,6 +18,7 @@ type Client struct {
 	clientSecret string
 	redirectUri  string
 	apiUrl       string
+	throttle     *rate.RateLimiter
 }
 
 func NewClient(accessToken string) *Client {
@@ -37,6 +41,14 @@ func NewClientOAuth(accessToken string, clientId string, clientSecret string, re
 
 func (q *Client) SetApiUrl(url string) {
 	q.apiUrl = url
+}
+
+func (q *Client) Throttle(interval time.Duration) {
+	if interval == 0 {
+		q.throttle = nil
+		return
+	}
+	q.throttle = rate.New(1, interval)
 }
 
 func (q *Client) postJson(resource string, params map[string]string) ([]byte, error) {
@@ -71,6 +83,11 @@ func (q *Client) getJson(resource string, params map[string]string) ([]byte, err
 func (q *Client) doRequest(req *http.Request) ([]byte, error) {
 	client := &http.Client{}
 	req.Header.Set("Authorization", "Bearer "+q.accessToken)
+
+	if q.throttle != nil {
+		q.throttle.Wait()
+	}
+
 	res, err := client.Do(req)
 	if err != nil {
 		return nil, err

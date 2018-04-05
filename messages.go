@@ -30,7 +30,7 @@ func (q *Client) GetRecentMessages(params *GetRecentMessagesParams) ([]*Message,
 	setOptional(params.Count, "count", &requestParams)
 	setOptional(params.MaxUpdatedUsec, "max_updated_usec", &requestParams)
 
-	resp, err := q.getJson(apiUrlResource("messages/"+params.ThreadId), requestParams)
+	resp, err := q.getJson(q.apiUrlResource("messages/"+params.ThreadId), requestParams)
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +49,7 @@ func (q *Client) NewMessage(params *NewMessageParams) (*Message, error) {
 
 	setOptional(params.Silent, "silent", &requestParams)
 
-	resp, err := q.postJson(apiUrlResource("messages/new"), requestParams)
+	resp, err := q.postJson(q.apiUrlResource("messages/new"), requestParams)
 	if err != nil {
 		return nil, err
 	}

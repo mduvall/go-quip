@@ -62,7 +62,7 @@ type RemoveMembersParams struct {
 }
 
 func (q *Client) GetThread(id string) (*Thread, error) {
-	resp, err := q.getJson(apiUrlResource("threads/"+id), map[string]string{})
+	resp, err := q.getJson(q.apiUrlResource("threads/"+id), map[string]string{})
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +75,7 @@ func (q *Client) GetThread(id string) (*Thread, error) {
 
 func (q *Client) GetThreads(ids []string) ([]*Thread, error) {
 	qid := strings.Join(ids, ",")
-	resp, err := q.getJson(apiUrlResource("threads/?ids="+qid), map[string]string{})
+	resp, err := q.getJson(q.apiUrlResource("threads/?ids="+qid), map[string]string{})
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func (q *Client) GetRecentThreads(params *GetRecentThreadsParams) ([]*Thread, er
 	setOptional(params.Count, "count", &requestParams)
 	setOptional(params.MaxUpdatedUsec, "max_updated_usec", &requestParams)
 
-	resp, err := q.getJson(apiUrlResource("threads/recent"), requestParams)
+	resp, err := q.getJson(q.apiUrlResource("threads/recent"), requestParams)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +112,7 @@ func (q *Client) NewDocument(params *NewDocumentParams) (*Thread, error) {
 	setOptional(strings.Join(params.MemberIds, ","), "member_ids", &requestParams)
 
 	fmt.Println(requestParams)
-	resp, err := q.postJson(apiUrlResource("threads/new-document"), requestParams)
+	resp, err := q.postJson(q.apiUrlResource("threads/new-document"), requestParams)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +132,7 @@ func (q *Client) EditDocument(params *EditDocumentParams) (*Thread, error) {
 	setOptional(params.Location, "location", &requestParams)
 	setOptional(strings.Join(params.MemberIds, ","), "member_ids", &requestParams)
 
-	resp, err := q.postJson(apiUrlResource("threads/edit-document"), requestParams)
+	resp, err := q.postJson(q.apiUrlResource("threads/edit-document"), requestParams)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +151,7 @@ func (q *Client) AddMembers(params *AddMembersParams) (*Thread, error) {
 	requestParams["thread_id"] = params.ThreadId
 	requestParams["member_ids"] = strings.Join(params.MemberIds, ",")
 
-	resp, err := q.postJson(apiUrlResource("threads/add-members"), requestParams)
+	resp, err := q.postJson(q.apiUrlResource("threads/add-members"), requestParams)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +170,7 @@ func (q *Client) RemoveMembers(params *RemoveMembersParams) (*Thread, error) {
 	requestParams["thread_id"] = params.ThreadId
 	requestParams["member_ids"] = strings.Join(params.MemberIds, ",")
 
-	resp, err := q.postJson(apiUrlResource("threads/remove-members"), requestParams)
+	resp, err := q.postJson(q.apiUrlResource("threads/remove-members"), requestParams)
 	if err != nil {
 		return nil, err
 	}

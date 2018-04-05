@@ -9,20 +9,18 @@ import (
 	"strings"
 )
 
-const (
-	BASE_API_URL = "https://platform.quip.com"
-)
-
 type Client struct {
 	accessToken  string
 	clientId     string
 	clientSecret string
 	redirectUri  string
+	apiUrl       string
 }
 
 func NewClient(accessToken string) *Client {
 	return &Client{
 		accessToken: accessToken,
+		apiUrl:      "https://platform.quip.com",
 	}
 }
 
@@ -33,7 +31,12 @@ func NewClientOAuth(accessToken string, clientId string, clientSecret string, re
 		clientId:     clientId,
 		clientSecret: clientSecret,
 		redirectUri:  redirectUri,
+		apiUrl:       "https://platform.quip.com",
 	}
+}
+
+func (q *Client) SetApiUrl(url string) {
+	q.apiUrl = url
 }
 
 func (q *Client) postJson(resource string, params map[string]string) ([]byte, error) {
@@ -85,8 +88,8 @@ func mapToQueryString(params map[string]string) *strings.Reader {
 	return strings.NewReader(body.Encode())
 }
 
-func apiUrlResource(resource string) string {
-	return BASE_API_URL + "/1/" + resource
+func (q *Client) apiUrlResource(resource string) string {
+	return q.apiUrl + "/1/" + resource
 }
 
 func required(val interface{}, message string) {

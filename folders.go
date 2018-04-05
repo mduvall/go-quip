@@ -47,7 +47,7 @@ type NewFolderParams struct {
 func (q *Client) GetFolder(params *GetFolderParams) (*Folder, error) {
 	required(params.Id, "Id is required for /folder/id")
 
-	resp, err := q.getJson(apiUrlResource("folders/"+params.Id), map[string]string{})
+	resp, err := q.getJson(q.apiUrlResource("folders/"+params.Id), map[string]string{})
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +61,7 @@ func (q *Client) GetFolder(params *GetFolderParams) (*Folder, error) {
 func (q *Client) GetFolders(params *GetFoldersParams) ([]*Folder, error) {
 	required(params.Ids, "Ids is required for /folder/ids")
 
-	resp, _ := q.getJson(apiUrlResource("folders/"+strings.Join(params.Ids, ",")), map[string]string{})
+	resp, _ := q.getJson(q.apiUrlResource("folders/"+strings.Join(params.Ids, ",")), map[string]string{})
 	var folders []*Folder
 	if err := json.Unmarshal(resp, folders); err != nil {
 		return nil, err
@@ -76,7 +76,7 @@ func (q *Client) NewFolder(params *NewFolderParams) (*Folder, error) {
 	setOptional(params.Color, "color", &requestParams)
 	setOptional(params.MemberIds, "member_ids", &requestParams)
 
-	resp, err := q.postJson(apiUrlResource("folders/new"), requestParams)
+	resp, err := q.postJson(q.apiUrlResource("folders/new"), requestParams)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func (q *Client) AddFolderMembers(params *AddFolderMembersParams) (*Folder, erro
 	setRequired(params.FolderId, "folder_id", &requestParams, "FolderId is required for /folder/add-members")
 	setRequired(params.MemberIds, "member_ids", &requestParams, "MemberIds is required for /folder/add-members")
 
-	resp, err := q.postJson(apiUrlResource("folders/add-members"), requestParams)
+	resp, err := q.postJson(q.apiUrlResource("folders/add-members"), requestParams)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +108,7 @@ func (q *Client) RemoveFolderMembers(params *RemoveFolderMembersParams) (*Folder
 	setRequired(params.FolderId, "folder_id", &requestParams, "FolderId is required for /folder/remove-members")
 	setRequired(params.MemberIds, "member_ids", &requestParams, "MemberIds is required for /folder/remove-members")
 
-	resp, err := q.postJson(apiUrlResource("folders/remove-members"), requestParams)
+	resp, err := q.postJson(q.apiUrlResource("folders/remove-members"), requestParams)
 	if err != nil {
 		return nil, err
 	}

@@ -26,7 +26,7 @@ type GetUsersParams struct {
 func (q *Client) GetUser(params *GetUserParams) (*User, error) {
 	required(params.Id, "Id is required for /users/id")
 
-	resp, err := q.getJson(apiUrlResource("users/"+params.Id), map[string]string{})
+	resp, err := q.getJson(q.apiUrlResource("users/"+params.Id), map[string]string{})
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +38,7 @@ func (q *Client) GetUser(params *GetUserParams) (*User, error) {
 func (q *Client) GetUsers(params *GetUsersParams) ([]*User, error) {
 	required(params.Ids, "Ids is required for /users/ids")
 
-	resp, err := q.getJson(apiUrlResource("users/"+strings.Join(params.Ids, ",")), map[string]string{})
+	resp, err := q.getJson(q.apiUrlResource("users/"+strings.Join(params.Ids, ",")), map[string]string{})
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +48,7 @@ func (q *Client) GetUsers(params *GetUsersParams) ([]*User, error) {
 }
 
 func (q *Client) GetContacts() ([]*User, error) {
-	resp, err := q.getJson(apiUrlResource("users/contacts"), map[string]string{})
+	resp, err := q.getJson(q.apiUrlResource("users/contacts"), map[string]string{})
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +58,7 @@ func (q *Client) GetContacts() ([]*User, error) {
 }
 
 func (q *Client) GetAuthenticatedUser() (*User, error) {
-	resp, err := q.getJson(apiUrlResource("users/current"), map[string]string{})
+	resp, err := q.getJson(q.apiUrlResource("users/current"), map[string]string{})
 	if err != nil {
 		return nil, err
 	}

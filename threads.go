@@ -74,15 +74,27 @@ func (q *Client) GetThread(id string) (*Thread, error) {
 }
 
 func (q *Client) GetThreads(ids []string) ([]*Thread, error) {
-	qid := strings.Join(ids, ",")
-	resp, err := q.getJson(q.apiUrlResource("threads/?ids="+qid), map[string]string{})
+	var threads []*Thread
+
+	if len(ids) == 0 {
+		return threads, nil
+	}
+
+	resp, err := q.getJson(q.apiUrlResource("threads/"), map[string]string{
+		"ids": strings.Join(ids, ","),
+	})
 	if err != nil {
 		return nil, err
 	}
-	var threads []*Thread
-	if err := json.Unmarshal(resp, &threads); err != nil {
+
+	var threadMap map[string]*Thread
+	if err := json.Unmarshal(resp, &threadMap); err != nil {
 		return nil, err
 	}
+	for _, t := range threadMap {
+		threads = append(threads, t)
+	}
+
 	return threads, nil
 }
 

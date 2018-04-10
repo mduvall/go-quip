@@ -60,11 +60,26 @@ func (q *Client) GetFolder(params *GetFolderParams) (*Folder, error) {
 
 func (q *Client) GetFolders(params *GetFoldersParams) ([]*Folder, error) {
 	required(params.Ids, "Ids is required for /folder/ids")
-
-	resp, _ := q.getJson(q.apiUrlResource("folders/"+strings.Join(params.Ids, ",")), map[string]string{})
 	var folders []*Folder
-	if err := json.Unmarshal(resp, folders); err != nil {
+
+	if len(params.Ids) == 0 { // nothing to do
+		return folders, nil
+	}
+
+	resp, err := q.getJson(q.apiUrlResource("folders/"), map[string]string{
+		"ids": strings.Join(params.Ids, ","),
+	})
+	if err != nil {
 		return nil, err
+	}
+
+	var folderMap map[string]*Folder
+	if err := json.Unmarshal(resp, &folderMap); err != nil {
+		return nil, err
+	}
+
+	for _, f := range folderMap {
+		folders = append(folders, f)
 	}
 	return folders, nil
 }

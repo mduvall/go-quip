@@ -2,6 +2,7 @@ package quip
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -92,8 +93,12 @@ func (q *Client) doRequest(req *http.Request) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	defer res.Body.Close()
+
+	if res.StatusCode >= 400 {
+		return []byte{}, fmt.Errorf("%s, in response to %s %s", res.Status, req.Method, req.URL)
+	}
+
 	return ioutil.ReadAll(res.Body)
 }
 

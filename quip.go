@@ -2,11 +2,13 @@ package quip
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -59,7 +61,7 @@ func (q *Client) postJson(resource string, params map[string]string) ([]byte, er
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	return q.doRequest(req)
+	return q.doRequest(req, 1)
 }
 
 func (q *Client) getJson(resource string, params map[string]string) ([]byte, error) {
@@ -78,10 +80,16 @@ func (q *Client) getJson(resource string, params map[string]string) ([]byte, err
 		return nil, err
 	}
 
-	return q.doRequest(req)
+	return q.doRequest(req, 1)
 }
 
-func (q *Client) doRequest(req *http.Request) ([]byte, error) {
+func (q *Client) doRequest(req *http.Request, attempt int) ([]byte, error) {
+
+	// Bail out, don't loop
+	if attempt > 3 {
+		return []byte{}, errors.New("Too many failed HTTP requests")
+	}
+
 	client := &http.Client{}
 	req.Header.Set("Authorization", "Bearer "+q.accessToken)
 
@@ -94,6 +102,23 @@ func (q *Client) doRequest(req *http.Request) ([]byte, error) {
 		return nil, err
 	}
 	defer res.Body.Close()
+
+	if res.StatusCode == 503 {
+		header := res.Header.Get("X-RateLimit-Reset")
+		if len(header) == 0 {
+			return []byte{}, errors.New("Got 503, but no X-RateLimit-Reset header?!")
+		}
+		timestamp, err := strconv.ParseInt(header, 10, 64)
+		if err != nil {
+			return []byte{}, fmt.Errorf("Failed to convert %s to int64", err)
+		}
+		t := time.Unix(timestamp, 0).Local()
+		until := time.Until(t)
+		log.Printf("Asked to halt for %s...\n", until.Round(time.Second).String())
+		time.Sleep(until)
+		attempt = attempt + 1
+		q.doRequest(req, attempt)
+	}
 
 	if res.StatusCode >= 400 {
 		return []byte{}, fmt.Errorf("%s, in response to %s %s", res.Status, req.Method, req.URL)

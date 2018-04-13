@@ -117,7 +117,7 @@ func (q *Client) doRequest(req *http.Request, attempt int) ([]byte, error) {
 		log.Printf("Asked to halt for %s...\n", until.Round(time.Second).String())
 		time.Sleep(until)
 		attempt = attempt + 1
-		q.doRequest(req, attempt)
+		return q.doRequest(req, attempt)
 	}
 
 	if res.StatusCode >= 400 {

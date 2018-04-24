@@ -2,7 +2,6 @@ package quip
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 )
 
@@ -123,7 +122,6 @@ func (q *Client) NewDocument(params *NewDocumentParams) (*Thread, error) {
 	setOptional(params.Title, "title", &requestParams)
 	setOptional(strings.Join(params.MemberIds, ","), "member_ids", &requestParams)
 
-	fmt.Println(requestParams)
 	resp, err := q.postJson(q.apiUrlResource("threads/new-document"), requestParams)
 	if err != nil {
 		return nil, err

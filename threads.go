@@ -5,6 +5,15 @@ import (
 	"strings"
 )
 
+const (
+	APPEND          = "0"
+	PREPEND         = "1"
+	AFTER_SECTION   = "2"
+	BEFORE_SECTION  = "3"
+	REPLACE_SECTION = "4"
+	DELETE_SECTION  = "5"
+)
+
 type ThreadSharing struct {
 	CompanyID   string `json:"company_id"`
 	CompanyMode string `json:"company_mode"`
@@ -47,7 +56,7 @@ type EditDocumentParams struct {
 	Content   string
 	Format    string
 	Location  string
-	MemberIds []string
+	SectionId string
 }
 
 type AddMembersParams struct {
@@ -135,12 +144,12 @@ func (q *Client) NewDocument(params *NewDocumentParams) (*Thread, error) {
 
 func (q *Client) EditDocument(params *EditDocumentParams) (*Thread, error) {
 	requestParams := make(map[string]string)
-	required(params.Content, "Content is required for /edit-document")
-	requestParams["content"] = params.Content
+	setRequired(params.Content, "content", &requestParams, "Content is required for /edit-document")
+	setRequired(params.ThreadId, "thread_id", &requestParams, "Thread ID is required for /edit-document")
 
 	setOptional(params.Format, "format", &requestParams)
 	setOptional(params.Location, "location", &requestParams)
-	setOptional(strings.Join(params.MemberIds, ","), "member_ids", &requestParams)
+	setOptional(params.SectionId, "section_id", &requestParams)
 
 	resp, err := q.postJson(q.apiUrlResource("threads/edit-document"), requestParams)
 	if err != nil {

@@ -57,7 +57,7 @@ func (q *Client) Throttle(interval time.Duration) {
 func (q *Client) postJson(resource string, params map[string]string) ([]byte, error) {
 	req, err := http.NewRequest("POST", resource, mapToQueryString(params))
 	if err != nil {
-		log.Fatal("Bad url: " + resource)
+		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 

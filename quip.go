@@ -107,8 +107,8 @@ func (q *Client) doRequest(req *http.Request, attempt int) ([]byte, error) {
 	// retry_rate_limit in https://github.com/ConsenSys/quip-projects/blob/master/quip.py
 	// "250 calls per hour/15 per minute" https://twitter.com/QuipSupport/status/527965994761744384
 	// Seems to give a 15s wait first then 44s waits for every ~48 rapid requests.
-	if res.StatusCode == http.StatusServiceUnavailable && (                  // 503
-	req.Method == "GET" || req.Method == "DELETE" || req.Method == "HEAD") { // idempotent
+	if res.StatusCode == http.StatusServiceUnavailable && (                                          // 503
+	req.Method == "GET" || req.Method == "POST" || req.Method == "DELETE" || req.Method == "HEAD") { // idempotent
 		delay := 5 * time.Second // default
 		resetRateLimit := res.Header.Get("X-RateLimit-Reset")
 		if len(resetRateLimit) == 0 {

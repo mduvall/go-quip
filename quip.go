@@ -85,11 +85,6 @@ func (q *Client) getJson(resource string, params map[string]string) ([]byte, err
 
 func (q *Client) doRequest(req *http.Request, attempt int) ([]byte, error) {
 
-	// Bail out, don't loop
-	if attempt > 3 {
-		return []byte{}, errors.New("Too many failed HTTP requests")
-	}
-
 	client := &http.Client{}
 	req.Header.Set("Authorization", "Bearer "+q.accessToken)
 
@@ -103,26 +98,15 @@ func (q *Client) doRequest(req *http.Request, attempt int) ([]byte, error) {
 	}
 	defer res.Body.Close()
 
-	// Quip API docs don't mention rate limiting currently. This code is based on
-	// retry_rate_limit in https://github.com/ConsenSys/quip-projects/blob/master/quip.py
-	// "250 calls per hour/15 per minute" https://twitter.com/QuipSupport/status/527965994761744384
-	// Seems to give a 15s wait first then 44s waits for every ~48 rapid requests.
-	if res.StatusCode == http.StatusServiceUnavailable && (                                          // 503
-	req.Method == "GET" || req.Method == "POST" || req.Method == "DELETE" || req.Method == "HEAD") { // idempotent
-		delay := 5 * time.Second // default
-		resetRateLimit := res.Header.Get("X-RateLimit-Reset")
-		if len(resetRateLimit) == 0 {
-			log.Printf("Got 503 response, but no X-RateLimit-Reset header")
-		} else {
-			timestamp, err := strconv.ParseInt(resetRateLimit, 10, 64)
-			if err != nil {
-				log.Printf("Bad 503 X-RateLimit-Reset value %s: %s", resetRateLimit, err)
-			} else {
-				delay = time.Until(time.Unix(timestamp, 0))
-			}
+	if retryDelay := retryAfterDelay(req, res); retryDelay > 0 {
+
+		// Bail out, don't loop again
+		if attempt > 3 {
+			return []byte{}, errors.New("Too many failed HTTP requests")
 		}
-		log.Printf("Delaying for %s due to rate limit\n", delay.Round(time.Second).String())
-		time.Sleep(delay)
+
+		log.Printf("Delaying for %s due to rate limit\n", retryDelay.Round(time.Second).String())
+		time.Sleep(retryDelay)
 		return q.doRequest(req, attempt+1)
 	}
 
@@ -131,6 +115,46 @@ func (q *Client) doRequest(req *http.Request, attempt int) ([]byte, error) {
 	}
 
 	return ioutil.ReadAll(res.Body)
+}
+
+// Quip API docs don't mention rate limiting currently. This code is based on
+// retry_rate_limit in https://github.com/ConsenSys/quip-projects/blob/master/quip.py
+// where Quip uses a 503 with a X-RateLimit-Reset header (not a 429 with Retry-After)
+// "250 calls per hour/15 per minute" https://twitter.com/QuipSupport/status/527965994761744384
+// Seems to give a 15s wait first then 44s waits for every ~48 rapid requests.
+func retryAfterDelay(req *http.Request, res *http.Response) time.Duration {
+
+	hdr := ""
+	switch res.StatusCode {
+	case http.StatusServiceUnavailable:
+		hdr = res.Header.Get("X-RateLimit-Reset")
+	case http.StatusTooManyRequests:
+		hdr = res.Header.Get("Retry-After")
+	default:
+		return 0
+	}
+
+	var idempotent bool // idempotent methods we can safely retry
+	switch req.Method {
+	case "GET", "HEAD", "PUT", "DELETE", "OPTIONS", "TRACE":
+		idempotent = true
+	}
+
+	delay, err := strconv.ParseInt(hdr, 10, 64)
+	if err != nil { // missing retry delay header or a bad value
+		if !idempotent {
+			return 0 // not safe to retry
+		}
+		return 5 * time.Second // default retry delay for idempotent methods
+	}
+
+	// if we got a valid rate limit delay value then we trust that it's ok to retry
+	// (Quip sends a 503 with X-RateLimit-Reset on a POST)
+	if idempotent || req.Method == "POST" {
+		return time.Duration(delay) * time.Second
+	}
+
+	return 0
 }
 
 func mapToQueryString(params map[string]string) *strings.Reader {

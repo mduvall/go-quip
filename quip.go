@@ -16,17 +16,19 @@ import (
 )
 
 type Client struct {
-	accessToken  string
-	clientId     string
-	clientSecret string
-	redirectUri  string
-	apiUrl       string
+	accessToken       string
+	clientId          string
+	clientSecret      string
+	redirectUri       string
+	apiUrl            string
+	maxRateLimitDelay int64
 }
 
 func NewClient(accessToken string) *Client {
 	return &Client{
-		accessToken: accessToken,
-		apiUrl:      "https://platform.quip.com",
+		accessToken:       accessToken,
+		apiUrl:            "https://platform.quip.com",
+		maxRateLimitDelay: 60, // doubles each time a higher rate limit is hit
 	}
 }
 
@@ -89,7 +91,7 @@ func (q *Client) doRequest(req *http.Request, attempt int) ([]byte, error) {
 	}
 	defer res.Body.Close()
 
-	if retryDelay := retryAfterDelay(req, res); retryDelay > 0 {
+	if retryDelay := q.retryAfterDelay(req, res); retryDelay > 0 {
 
 		// Bail out, don't recurse again
 		if attempt > 3 {
@@ -113,14 +115,16 @@ func (q *Client) doRequest(req *http.Request, attempt int) ([]byte, error) {
 // where Quip uses a 503 with a X-RateLimit-Reset header (not a 429 with Retry-After)
 // "250 calls per hour/15 per minute" https://twitter.com/QuipSupport/status/527965994761744384
 // Seems to give a 15s wait first then 44s waits for every ~48 rapid requests.
-func retryAfterDelay(req *http.Request, res *http.Response) time.Duration {
+func (q *Client) retryAfterDelay(req *http.Request, res *http.Response) time.Duration {
 
 	hdr := ""
 	switch res.StatusCode {
 	case http.StatusServiceUnavailable:
 		hdr = res.Header.Get("X-RateLimit-Reset")
+		//log.Printf("X-RateLimit-Reset: %s", hdr)
 	case http.StatusTooManyRequests:
 		hdr = res.Header.Get("Retry-After")
+		//log.Printf("Retry-After: %s", hdr)
 	default:
 		return 0
 	}
@@ -137,6 +141,11 @@ func retryAfterDelay(req *http.Request, res *http.Response) time.Duration {
 			return 0 // not safe to retry
 		}
 		return 5 * time.Second // default retry delay for idempotent methods
+	}
+
+	if delay > q.maxRateLimitDelay { // because we've got "X-RateLimit-Reset: 1533052380" sometimes!
+		delay = q.maxRateLimitDelay                   // be sensible
+		q.maxRateLimitDelay = q.maxRateLimitDelay * 2 // be kind
 	}
 
 	// if we got a valid rate limit delay value then we trust that it's ok to retry

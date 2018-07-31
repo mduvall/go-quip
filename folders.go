@@ -15,7 +15,24 @@ type Folder struct {
 	} `json:"folder"`
 
 	MemberIds []string `json:"member_ids"`
-	Children  []map[string]string
+	Children  []FolderItem
+}
+
+type FolderItem struct {
+	// Either FolderID or ThreadID will be set but not both
+	FolderID   string `json:"folder_id"`
+	ThreadID   string `json:"thread_id"`
+	Restricted bool   `json:"restricted"`
+}
+
+func (fi FolderItem) ItemKindID() (string, string) {
+	if fi.FolderID != "" {
+		return "folder_id", fi.FolderID
+	}
+	if fi.ThreadID != "" {
+		return "thread_id", fi.ThreadID
+	}
+	return "unknown", ""
 }
 
 type GetFolderParams struct {

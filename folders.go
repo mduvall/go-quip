@@ -1,7 +1,6 @@
 package quip
 
 import (
-	"encoding/json"
 	"strings"
 )
 
@@ -52,7 +51,7 @@ func (q *Client) GetFolder(params *GetFolderParams) (*Folder, error) {
 		return nil, err
 	}
 	var folder Folder
-	if err := json.Unmarshal(resp, &folder); err != nil {
+	if err := unmarshal(resp, &folder); err != nil {
 		return nil, err
 	}
 	return &folder, nil
@@ -74,7 +73,7 @@ func (q *Client) GetFolders(params *GetFoldersParams) ([]*Folder, error) {
 	}
 
 	var folderMap map[string]*Folder
-	if err := json.Unmarshal(resp, &folderMap); err != nil {
+	if err := unmarshal(resp, &folderMap); err != nil {
 		return nil, err
 	}
 
@@ -96,7 +95,7 @@ func (q *Client) NewFolder(params *NewFolderParams) (*Folder, error) {
 		return nil, err
 	}
 	var folder Folder
-	if err := json.Unmarshal(resp, &folder); err != nil {
+	if err := unmarshal(resp, &folder); err != nil {
 		return nil, err
 	}
 	return &folder, err
@@ -112,7 +111,7 @@ func (q *Client) AddFolderMembers(params *AddFolderMembersParams) (*Folder, erro
 		return nil, err
 	}
 	var folder Folder
-	if err := json.Unmarshal(resp, &folder); err != nil {
+	if err := unmarshal(resp, &folder); err != nil {
 		return nil, err
 	}
 	return &folder, err
@@ -128,7 +127,7 @@ func (q *Client) RemoveFolderMembers(params *RemoveFolderMembersParams) (*Folder
 		return nil, err
 	}
 	var folder Folder
-	if err := json.Unmarshal(resp, &folder); err != nil {
+	if err := unmarshal(resp, &folder); err != nil {
 		return nil, err
 	}
 	return &folder, err

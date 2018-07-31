@@ -2,15 +2,17 @@ package quip
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 type Client struct {
@@ -46,7 +48,7 @@ func (q *Client) SetApiUrl(url string) {
 func (q *Client) postJson(resource string, params map[string]string) ([]byte, error) {
 	req, err := http.NewRequest("POST", resource, mapToQueryString(params))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "http.NewRequest POST %s", resource)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
@@ -56,7 +58,7 @@ func (q *Client) postJson(resource string, params map[string]string) ([]byte, er
 func (q *Client) getJson(resource string, params map[string]string) ([]byte, error) {
 	qs, err := ioutil.ReadAll(mapToQueryString(params))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "ioutil.ReadAll")
 	}
 
 	queryString := string(qs)
@@ -66,7 +68,7 @@ func (q *Client) getJson(resource string, params map[string]string) ([]byte, err
 
 	req, err := http.NewRequest("GET", resource, nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "http.NewRequest GET %s", resource)
 	}
 
 	return q.doRequest(req, 1)
@@ -77,26 +79,30 @@ func (q *Client) doRequest(req *http.Request, attempt int) ([]byte, error) {
 	client := &http.Client{}
 	req.Header.Set("Authorization", "Bearer "+q.accessToken)
 
+	errWrap := func(err error) error {
+		return errors.Wrapf(err, "client.Do %s %s", req.Method, req.URL.String())
+	}
+
 	res, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return []byte{}, errWrap(err)
 	}
 	defer res.Body.Close()
 
 	if retryDelay := retryAfterDelay(req, res); retryDelay > 0 {
 
-		// Bail out, don't loop again
+		// Bail out, don't recurse again
 		if attempt > 3 {
-			return []byte{}, errors.New("Too many failed HTTP requests")
+			return []byte{}, errWrap(errors.New("Too many failed HTTP requests: " + res.Status))
 		}
 
 		log.Printf("Delaying for %s due to rate limit\n", retryDelay.Round(time.Second).String())
 		time.Sleep(retryDelay)
-		return q.doRequest(req, attempt+1)
+		return q.doRequest(req, attempt+1) // recurse
 	}
 
 	if res.StatusCode >= 400 {
-		return []byte{}, fmt.Errorf("%s, in response to %s %s", res.Status, req.Method, req.URL)
+		return []byte{}, errWrap(errors.New(res.Status))
 	}
 
 	return ioutil.ReadAll(res.Body)
@@ -185,14 +191,36 @@ func setRequired(val interface{}, key string, params *map[string]string, message
 	setOptional(val, key, params)
 }
 
-func parseJsonObject(b []byte) map[string]interface{} {
+func parseJsonObject(b []byte) (map[string]interface{}, error) {
 	var val map[string]interface{}
-	json.Unmarshal(b, &val)
-	return val
+	if err := unmarshal(b, &val); err != nil {
+		return nil, err
+	}
+	return val, nil
 }
 
-func parseJsonArray(b []byte) []interface{} {
+func parseJsonArray(b []byte) ([]interface{}, error) {
 	var val []interface{}
-	json.Unmarshal(b, &val)
-	return val
+	if err := unmarshal(b, &val); err != nil {
+		return nil, err
+	}
+	return val, nil
+}
+
+// unmarshal calls json.Unmarshal and gives richer error reports including the
+// type being unmarshalled and at least some of the raw data bytes.
+// Set the QUIP_API_ERR_DUMP_LEN env var to adjust the amount of data shown.
+func unmarshal(data []byte, v interface{}) error {
+	if err := json.Unmarshal(data, v); err != nil {
+		dumpLen, _ := strconv.Atoi(os.Getenv("QUIP_API_ERR_DUMP_LEN"))
+		if dumpLen == 0 {
+			dumpLen = 20
+		}
+		suffix := ""
+		if len(data) > dumpLen {
+			suffix = fmt.Sprintf("... (showing first %d bytes, set QUIP_API_ERR_DUMP_LEN env var to adjust)", dumpLen)
+		}
+		return errors.Wrapf(err, "json.Unmarshal %T from %d bytes: %.*s%s", v, len(data), dumpLen, data, suffix)
+	}
+	return nil
 }

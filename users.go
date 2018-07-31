@@ -30,7 +30,10 @@ func (q *Client) GetUser(params *GetUserParams) (*User, error) {
 	if err != nil {
 		return nil, err
 	}
-	parsed := parseJsonObject(resp)
+	parsed, err := parseJsonObject(resp)
+	if err != nil {
+		return nil, err
+	}
 
 	return hydrateUser(parsed)
 }
@@ -42,7 +45,10 @@ func (q *Client) GetUsers(params *GetUsersParams) ([]*User, error) {
 	if err != nil {
 		return nil, err
 	}
-	parsed := parseJsonObject(resp)
+	parsed, err := parseJsonObject(resp)
+	if err != nil {
+		return nil, err
+	}
 
 	return hydrateUsersMap(parsed)
 }
@@ -52,7 +58,10 @@ func (q *Client) GetContacts() ([]*User, error) {
 	if err != nil {
 		return nil, err
 	}
-	parsed := parseJsonArray(resp)
+	parsed, err := parseJsonArray(resp)
+	if err != nil {
+		return nil, err
+	}
 
 	return hydrateUsersArray(parsed)
 }
@@ -62,7 +71,10 @@ func (q *Client) GetAuthenticatedUser() (*User, error) {
 	if err != nil {
 		return nil, err
 	}
-	parsed := parseJsonObject(resp)
+	parsed, err := parseJsonObject(resp)
+	if err != nil {
+		return nil, err
+	}
 
 	return hydrateUser(parsed)
 }

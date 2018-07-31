@@ -22,6 +22,8 @@ type Client struct {
 	redirectUri       string
 	apiUrl            string
 	maxRateLimitDelay int64
+	// Number of seconds spent waiting due to rate limiting
+	RateLimitDelays float64
 }
 
 func NewClient(accessToken string) *Client {
@@ -98,8 +100,9 @@ func (q *Client) doRequest(req *http.Request, attempt int) ([]byte, error) {
 			return []byte{}, errWrap(errors.New("Too many failed HTTP requests: " + res.Status))
 		}
 
-		log.Printf("Delaying for %s due to rate limit\n", retryDelay.Round(time.Second).String())
+		log.Printf("Delaying for %s due to rate limit.\n", retryDelay.Round(time.Second).String())
 		time.Sleep(retryDelay)
+		q.RateLimitDelays += retryDelay.Seconds()
 		return q.doRequest(req, attempt+1) // recurse
 	}
 
@@ -143,7 +146,14 @@ func (q *Client) retryAfterDelay(req *http.Request, res *http.Response) time.Dur
 		return 5 * time.Second // default retry delay for idempotent methods
 	}
 
-	if delay > q.maxRateLimitDelay { // because we've got "X-RateLimit-Reset: 1533052380" sometimes!
+	// Quip used to return X-RateLimit-Reset with a small value
+	// representing the number of seconds to delay. It later
+	// switched to returning the more common UTC epoch time.
+	if delay >= 1000000000 { // looks like an epoch
+		delay = delay - time.Now().Unix() // convert epoch to delay
+	}
+
+	if delay > q.maxRateLimitDelay {
 		delay = q.maxRateLimitDelay                   // be sensible
 		q.maxRateLimitDelay = q.maxRateLimitDelay * 2 // be kind
 	}

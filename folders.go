@@ -1,24 +1,38 @@
 package quip
 
 import (
-	"fmt"
 	"strings"
-
-	"github.com/mitchellh/mapstructure"
 )
 
 type Folder struct {
 	Info struct {
 		Id          string
 		Title       string
-		CreatedUsec int `mapstructure:"created_usec"`
-		UpdatedUsec int `mapstructure:"updated_usec"`
-		Color       int
-		ParentId    string `mapstructure:"parent_id"`
-	} `mapstructure:"folder"`
+		CreatedUsec int `json:"created_usec"`
+		UpdatedUsec int `json:"updated_usec"`
+		Color       string
+		ParentId    string `json:"parent_id"`
+	} `json:"folder"`
 
-	MemberIds []string `mapstructure:"member_ids"`
-	Children  []map[string]string
+	MemberIds []string `json:"member_ids"`
+	Children  []FolderItem
+}
+
+type FolderItem struct {
+	// Either FolderID or ThreadID will be set but not both
+	FolderID   string `json:"folder_id"`
+	ThreadID   string `json:"thread_id"`
+	Restricted bool   `json:"restricted"`
+}
+
+func (fi FolderItem) ItemKindID() (string, string) {
+	if fi.FolderID != "" {
+		return "folder_id", fi.FolderID
+	}
+	if fi.ThreadID != "" {
+		return "thread_id", fi.ThreadID
+	}
+	return "unknown", ""
 }
 
 type GetFolderParams struct {
@@ -46,73 +60,92 @@ type NewFolderParams struct {
 	MemberIds []string
 }
 
-func (q *Client) GetFolder(params *GetFolderParams) *Folder {
+func (q *Client) GetFolder(params *GetFolderParams) (*Folder, error) {
 	required(params.Id, "Id is required for /folder/id")
 
-	resp := q.getJson(apiUrlResource("folders/"+params.Id), map[string]string{})
-	parsed := parseJsonObject(resp)
-
-	return hydrateFolder(parsed)
+	resp, err := q.getJson(q.apiUrlResource("folders/"+params.Id), map[string]string{})
+	if err != nil {
+		return nil, err
+	}
+	var folder Folder
+	if err := unmarshal(resp, &folder); err != nil {
+		return nil, err
+	}
+	return &folder, nil
 }
 
-func (q *Client) GetFolders(params *GetFoldersParams) []*Folder {
+func (q *Client) GetFolders(params *GetFoldersParams) ([]*Folder, error) {
 	required(params.Ids, "Ids is required for /folder/ids")
+	var folders []*Folder
 
-	resp := q.getJson(apiUrlResource("folders/"+strings.Join(params.Ids, ",")), map[string]string{})
-	parsed := parseJsonObject(resp)
+	if len(params.Ids) == 0 { // nothing to do
+		return folders, nil
+	}
 
-	return hydrateFolders(parsed)
+	resp, err := q.getJson(q.apiUrlResource("folders/"), map[string]string{
+		"ids": strings.Join(params.Ids, ","),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var folderMap map[string]*Folder
+	if err := unmarshal(resp, &folderMap); err != nil {
+		return nil, err
+	}
+
+	for _, f := range folderMap {
+		folders = append(folders, f)
+	}
+	return folders, nil
 }
 
-func (q *Client) NewFolder(params *NewFolderParams) *Folder {
+func (q *Client) NewFolder(params *NewFolderParams) (*Folder, error) {
 	requestParams := make(map[string]string)
 	setRequired(params.Title, "title", &requestParams, "Title is required for /folders/new")
 	setOptional(params.ParentId, "parent_id", &requestParams)
 	setOptional(params.Color, "color", &requestParams)
 	setOptional(params.MemberIds, "member_ids", &requestParams)
 
-	resp := q.postJson(apiUrlResource("folders/new"), requestParams)
-	parsed := parseJsonObject(resp)
-
-	fmt.Println(string(resp))
-
-	return hydrateFolder(parsed)
+	resp, err := q.postJson(q.apiUrlResource("folders/new"), requestParams)
+	if err != nil {
+		return nil, err
+	}
+	var folder Folder
+	if err := unmarshal(resp, &folder); err != nil {
+		return nil, err
+	}
+	return &folder, err
 }
 
-func (q *Client) AddFolderMembers(params *AddFolderMembersParams) *Folder {
+func (q *Client) AddFolderMembers(params *AddFolderMembersParams) (*Folder, error) {
 	requestParams := make(map[string]string)
 	setRequired(params.FolderId, "folder_id", &requestParams, "FolderId is required for /folder/add-members")
 	setRequired(params.MemberIds, "member_ids", &requestParams, "MemberIds is required for /folder/add-members")
 
-	resp := q.postJson(apiUrlResource("folders/add-members"), requestParams)
-	parsed := parseJsonObject(resp)
-
-	return hydrateFolder(parsed)
+	resp, err := q.postJson(q.apiUrlResource("folders/add-members"), requestParams)
+	if err != nil {
+		return nil, err
+	}
+	var folder Folder
+	if err := unmarshal(resp, &folder); err != nil {
+		return nil, err
+	}
+	return &folder, err
 }
 
-func (q *Client) RemoveFolderMembers(params *RemoveFolderMembersParams) *Folder {
+func (q *Client) RemoveFolderMembers(params *RemoveFolderMembersParams) (*Folder, error) {
 	requestParams := make(map[string]string)
 	setRequired(params.FolderId, "folder_id", &requestParams, "FolderId is required for /folder/remove-members")
 	setRequired(params.MemberIds, "member_ids", &requestParams, "MemberIds is required for /folder/remove-members")
 
-	resp := q.postJson(apiUrlResource("folders/remove-members"), requestParams)
-	parsed := parseJsonObject(resp)
-
-	return hydrateFolder(parsed)
-}
-
-func hydrateFolder(resp interface{}) *Folder {
-	var folder Folder
-	mapstructure.Decode(resp, &folder)
-	return &folder
-}
-
-func hydrateFolders(resp map[string]interface{}) []*Folder {
-	folders := make([]*Folder, 0, len(resp))
-
-	for _, body := range resp {
-		folders = append(folders, hydrateFolder(body))
+	resp, err := q.postJson(q.apiUrlResource("folders/remove-members"), requestParams)
+	if err != nil {
+		return nil, err
 	}
-
-	return folders
+	var folder Folder
+	if err := unmarshal(resp, &folder); err != nil {
+		return nil, err
+	}
+	return &folder, err
 }

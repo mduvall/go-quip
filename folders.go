@@ -58,7 +58,7 @@ func (q *Client) GetFolder(params *GetFolderParams) *Folder {
 func (q *Client) GetFolders(params *GetFoldersParams) []*Folder {
 	required(params.Ids, "Ids is required for /folder/ids")
 
-	resp := q.getJson(apiUrlResource("folders/"+strings.Join(params.Ids, ",")), map[string]string{})
+	resp := q.getJson(apiUrlResource("folders/?ids="+strings.Join(params.Ids, ",")), map[string]string{})
 	parsed := parseJsonObject(resp)
 
 	return hydrateFolders(parsed)
